@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-
+from flask import g
 import sqlite3
 
 app = Flask(__name__)
@@ -41,6 +41,12 @@ def register():
         return jsonify({"message": "Đăng ký thành công"})
     except sqlite3.IntegrityError:
         return jsonify({"message": "Tên đăng nhập đã tồn tại"}), 400
+
+def get_db():
+    if 'db' not in g:
+        g.db = sqlite3.connect("forum.db", check_same_thread=False)
+    return g.db
+
 
 if __name__ == "__main__":
     app.run(debug=True)
