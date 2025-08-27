@@ -56,6 +56,33 @@ def register():
         conn.close()
         return jsonify({"message": "Tên đăng nhập đã tồn tại"}), 400
 
+# --- API đăng nhập ---
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"message": "Thiếu username hoặc password"}), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id FROM users WHERE username = %s AND password = %s",
+        (username, password)
+    )
+    user = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if user:
+        return jsonify({
+            "message": "Đăng nhập thành công",
+            "username": username
+        })
+    else:
+        return jsonify({"message": "Sai username hoặc password"}), 401
 
 if __name__ == "__main__":
     app.run(debug=True)
