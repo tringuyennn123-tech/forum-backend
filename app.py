@@ -1,23 +1,30 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask import g
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
 
 app = Flask(__name__)
 CORS(app)
 
-# --- Tạo DB nếu chưa có ---
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def get_db_connection():
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    return conn
+
 def init_db():
-    conn = sqlite3.connect("forum.db")
-    c = conn.cursor()
-    c.execute("""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT UNIQUE,
             password TEXT
         )
     """)
     conn.commit()
+    cur.close()
     conn.close()
 
 init_db()
@@ -33,19 +40,21 @@ def register():
         return jsonify({"message": "Thiếu username hoặc password"}), 400
 
     try:
-        conn = sqlite3.connect("forum.db")
-        c = conn.cursor()
-        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO users (username, password) VALUES (%s, %s) RETURNING id",
+            (username, password)
+        )
         conn.commit()
+        cur.close()
         conn.close()
         return jsonify({"message": "Đăng ký thành công"})
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close()
+        conn.close()
         return jsonify({"message": "Tên đăng nhập đã tồn tại"}), 400
-
-def get_db():
-    if 'db' not in g:
-        g.db = sqlite3.connect("forum.db", check_same_thread=False)
-    return g.db
 
 
 if __name__ == "__main__":
