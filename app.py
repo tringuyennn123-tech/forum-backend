@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -6,6 +6,8 @@ import os
 
 app = Flask(__name__)
 CORS(app)
+
+app.secret_key = os.environ.get("SECRET_KEY", "secret_dev_key")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -77,12 +79,18 @@ def login():
     conn.close()
 
     if user:
+        session["username"] = username
         return jsonify({
             "message": "Đăng nhập thành công",
             "username": username
         })
     else:
         return jsonify({"message": "Sai username hoặc password"}), 401
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()  # xoá toàn bộ session
+    return jsonify({"message": "Đã logout"})
 
 if __name__ == "__main__":
     app.run(debug=True)
