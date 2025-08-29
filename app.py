@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 import psycopg2
+from psycopg2 import errors
 from psycopg2.extras import RealDictCursor
 import os
 
@@ -70,7 +71,7 @@ def register():
         cur.close()
         conn.close()
         return jsonify({"message": "Đăng ký thành công"})
-    except psycopg2.errors.UniqueViolation:
+    except errors.UniqueViolation:
         conn.rollback()
         cur.close()
         conn.close()
@@ -98,6 +99,7 @@ def login():
 
     if user:
         session["username"] = username
+        session["user_id"] = user["id"]
         return jsonify({
             "message": "Đăng nhập thành công",
             "username": username
@@ -112,7 +114,7 @@ def logout():
 
 
 # --- Đăng bài ---
-@app.route("/create_post", methods=["POST"])
+@app.route("/api/create_post", methods=["POST"])
 def create_post():
     if "user_id" not in session:
         return jsonify({"error": "chưa login"}), 403
@@ -130,7 +132,7 @@ def create_post():
     return jsonify({"message": "tạo bài thành công", "post_id": post_id})
 
 # --- Lấy danh sách bài ---
-@app.route("/posts", methods=["GET"])
+@app.route("/api/posts", methods=["GET"])
 def get_posts():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -143,7 +145,7 @@ def get_posts():
     return jsonify(posts)
 
 # --- Thêm bình luận ---
-@app.route("/add_comment/<int:post_id>", methods=["POST"])
+@app.route("/api/add_comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
     if "user_id" not in session:
         return jsonify({"error": "chưa login"}), 403
@@ -160,7 +162,7 @@ def add_comment(post_id):
     return jsonify({"message": "bình luận thành công", "comment_id": comment_id})
 
 # --- Lấy bình luận của 1 bài ---
-@app.route("/comments/<int:post_id>", methods=["GET"])
+@app.route("/api/comments/<int:post_id>", methods=["GET"])
 def get_comments(post_id):
     conn = get_db_connection()
     cur = conn.cursor()
