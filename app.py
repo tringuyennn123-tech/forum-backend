@@ -29,7 +29,7 @@ def init_db():
     cur.execute("""
         CREATE TABLE IF NOT EXISTS posts (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            username TEXT NOT NULL,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -39,7 +39,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS comments (
             id SERIAL PRIMARY KEY,
             post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
-            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            username TEXT NOT NULL,
             content TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -99,7 +99,6 @@ def login():
 
     if user:
         session["username"] = username
-        session["user_id"] = user["id"]
         return jsonify({
             "message": "Đăng nhập thành công",
             "username": username
@@ -116,29 +115,31 @@ def logout():
 # --- Đăng bài ---
 @app.route("/api/create_post", methods=["POST"])
 def create_post():
-    if "user_id" not in session:
-        return jsonify({"error": "chưa login"}), 403
     data = request.json
+    username = data.get("username")
     title = data.get("title")
     content = data.get("content")
+    if not username:
+        return jsonify({"error": "chưa login"}), 403
+
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO posts (user_id, title, content) VALUES (%s,%s,%s) RETURNING id",
-                (session["user_id"], title, content))
+    cur.execute("INSERT INTO posts (username, title, content) VALUES (%s,%s,%s) RETURNING id",
+                (username, title, content))
     post_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"message": "tạo bài thành công", "post_id": post_id})
+    return jsonify({"message": "tạo bài thành công", "post_id": post_id,  "username": username})
 
 # --- Lấy danh sách bài ---
 @app.route("/api/posts", methods=["GET"])
 def get_posts():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("""SELECT posts.id, posts.title, posts.content, posts.created_at, users.username 
-                   FROM posts JOIN users ON posts.user_id = users.id
-                   ORDER BY posts.created_at DESC""")
+    cur.execute("""SELECT id, username, title, content, created_at
+                    FROM posts
+                    ORDER BY created_at DESC""")
     posts = cur.fetchall()
     cur.close()
     conn.close()
@@ -147,28 +148,32 @@ def get_posts():
 # --- Thêm bình luận ---
 @app.route("/api/add_comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
-    if "user_id" not in session:
-        return jsonify({"error": "chưa login"}), 403
     data = request.json
+    username = data.get("username")
     content = data.get("content")
+    if not username:
+        return jsonify({"error": "chưa login"}), 403
+
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("INSERT INTO comments (post_id, user_id, content) VALUES (%s,%s,%s) RETURNING id",
-                (post_id, session["user_id"], content))
+    cur.execute("INSERT INTO comments (post_id, username, content) VALUES (%s,%s,%s) RETURNING id",
+                (post_id, username, content))
     comment_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"message": "bình luận thành công", "comment_id": comment_id})
+    return jsonify({"message": "bình luận thành công", "comment_id": comment_id, "username": username})
 
 # --- Lấy bình luận của 1 bài ---
 @app.route("/api/comments/<int:post_id>", methods=["GET"])
 def get_comments(post_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("""SELECT comments.id, comments.content, comments.created_at, users.username 
-                   FROM comments JOIN users ON comments.user_id = users.id
-                   WHERE post_id=%s ORDER BY comments.created_at ASC""", (post_id,))
+    cur.execute("""SELECT id, username, content, created_at
+                    FROM comments
+                    WHERE post_id=%s
+                    ORDER BY created_at ASC
+                """, (post_id,))
     comments = cur.fetchall()
     cur.close()
     conn.close()
