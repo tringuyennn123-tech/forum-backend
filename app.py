@@ -25,6 +25,24 @@ def init_db():
             password TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS comments (
+            id SERIAL PRIMARY KEY,
+            post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -91,6 +109,68 @@ def login():
 def logout():
     session.clear()  # xoá toàn bộ session
     return jsonify({"message": "Đã logout"})
+
+
+# --- Đăng bài ---
+@app.route("/create_post", methods=["POST"])
+def create_post():
+    if "user_id" not in session:
+        return jsonify({"error": "chưa login"}), 403
+    data = request.json
+    title = data.get("title")
+    content = data.get("content")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO posts (user_id, title, content) VALUES (%s,%s,%s) RETURNING id",
+                (session["user_id"], title, content))
+    post_id = cur.fetchone()["id"]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "tạo bài thành công", "post_id": post_id})
+
+# --- Lấy danh sách bài ---
+@app.route("/posts", methods=["GET"])
+def get_posts():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""SELECT posts.id, posts.title, posts.content, posts.created_at, users.username 
+                   FROM posts JOIN users ON posts.user_id = users.id
+                   ORDER BY posts.created_at DESC""")
+    posts = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(posts)
+
+# --- Thêm bình luận ---
+@app.route("/add_comment/<int:post_id>", methods=["POST"])
+def add_comment(post_id):
+    if "user_id" not in session:
+        return jsonify({"error": "chưa login"}), 403
+    data = request.json
+    content = data.get("content")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("INSERT INTO comments (post_id, user_id, content) VALUES (%s,%s,%s) RETURNING id",
+                (post_id, session["user_id"], content))
+    comment_id = cur.fetchone()["id"]
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "bình luận thành công", "comment_id": comment_id})
+
+# --- Lấy bình luận của 1 bài ---
+@app.route("/comments/<int:post_id>", methods=["GET"])
+def get_comments(post_id):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""SELECT comments.id, comments.content, comments.created_at, users.username 
+                   FROM comments JOIN users ON comments.user_id = users.id
+                   WHERE post_id=%s ORDER BY comments.created_at ASC""", (post_id,))
+    comments = cur.fetchall()
+    cur.close()
+    conn.close()
+    return jsonify(comments)
 
 if __name__ == "__main__":
     app.run(debug=True)
