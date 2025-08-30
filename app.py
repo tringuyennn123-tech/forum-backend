@@ -116,7 +116,7 @@ def logout():
 @app.route("/api/create_post", methods=["POST"])
 def create_post():
     data = request.json
-    username = data.get("username")
+    username = session.get("username")
     title = data.get("title")
     content = data.get("content")
     if not username:
@@ -125,7 +125,7 @@ def create_post():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO posts (username, title, content) VALUES (%s,%s,%s) RETURNING id",
-                (session["username"], title, content))
+                (username, title, content))
     post_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
@@ -149,7 +149,7 @@ def get_posts():
 @app.route("/api/add_comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
     data = request.json
-    username = data.get("username")
+    username = session.get("username")
     content = data.get("content")
     if not username:
         return jsonify({"error": "chưa login"}), 403
@@ -157,7 +157,7 @@ def add_comment(post_id):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO comments (post_id, username, content) VALUES (%s,%s,%s) RETURNING id",
-                (post_id, session["username"], content))
+                (post_id, username, content))
     comment_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
