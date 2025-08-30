@@ -7,12 +7,19 @@ import os
 
 app = Flask(__name__)
 
+app.config.update(
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=False   # vì localhost không có HTTPS
+)
+
 CORS(
     app,
-    resources={r"/api/*": {"origins": [
-        "http://127.0.0.1:5500",   # frontend local
-        "https://forum-backend-1-b0uk.onrender.com"  # khi build FE lên render
-    ]}},
+    resources={r"/api/*": {
+        "origins": [
+            "http://127.0.0.1:5500",   # dev local
+            "https://forum-backend-1-b0uk.onrender.com"  # FE build
+        ]
+    }},
     supports_credentials=True
 )
 
