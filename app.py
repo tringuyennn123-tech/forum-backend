@@ -197,5 +197,35 @@ def get_comments(post_id):
     conn.close()
     return jsonify(comments)
 
+# --- Xóa bài ---
+@app.route("/api/delete_post/<int:post_id>", methods=["DELETE"])
+def delete_post(post_id):
+    data = request.json
+    username = data.get("username")  # lấy trực tiếp từ body
+
+    if not username:
+        return jsonify({"error": "chưa login"}), 403
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Kiểm tra bài viết thuộc về user
+    cur.execute(
+        "SELECT * FROM posts WHERE id = %s AND username = %s",
+        (post_id, username)
+    )
+    post = cur.fetchone()
+    if not post:
+        cur.close()
+        conn.close()
+        return jsonify({"error": "không tìm thấy bài hoặc không có quyền"}), 403
+
+    # Xóa bài
+    cur.execute("DELETE FROM posts WHERE id = %s", (post_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"message": "Đã xóa bài"})
+
 if __name__ == "__main__":
     app.run(debug=True)
