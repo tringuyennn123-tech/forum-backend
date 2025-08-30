@@ -6,7 +6,15 @@ from psycopg2.extras import RealDictCursor
 import os
 
 app = Flask(__name__)
-CORS(app, origins=["http://127.0.0.1:5500/"], supports_credentials=True)
+
+CORS(
+    app,
+    resources={r"/api/*": {"origins": [
+        "http://127.0.0.1:5500",   # frontend local
+        "https://forum-backend-1-b0uk.onrender.com"  # khi build FE lên render
+    ]}},
+    supports_credentials=True
+)
 
 app.secret_key = os.environ.get("SECRET_KEY", "secret_dev_key")
 
