@@ -8,15 +8,15 @@ import os
 app = Flask(__name__)
 
 app.config.update(
-    SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=False   # vì localhost không có HTTPS
+    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SECURE=True   # vì localhost không có HTTPS
 )
 
 CORS(
     app,
     resources={r"/api/*": {
         "origins": [
-            "http://127.0.0.1:5500",   # dev local
+            "https://3d681f448795.ngrok-free.app",   # dev local
             "https://forum-backend-1-b0uk.onrender.com"  # FE build
         ]
     }},
