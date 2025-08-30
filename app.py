@@ -19,6 +19,11 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
+
+    cur.execute("DROP TABLE IF EXISTS comments")
+    cur.execute("DROP TABLE IF EXISTS posts")
+    cur.execute("DROP TABLE IF EXISTS users")
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
