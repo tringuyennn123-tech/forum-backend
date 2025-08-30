@@ -6,7 +6,7 @@ from psycopg2.extras import RealDictCursor
 import os
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)
 
 app.secret_key = os.environ.get("SECRET_KEY", "secret_dev_key")
 
@@ -103,10 +103,10 @@ def login():
     conn.close()
 
     if user:
-        session["username"] = username
+        session["username"] = user["username"]
         return jsonify({
             "message": "Đăng nhập thành công",
-            "username": username
+            "username": user["username"]
         })
     else:
         return jsonify({"message": "Sai username hoặc password"}), 401
