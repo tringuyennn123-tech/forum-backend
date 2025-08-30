@@ -1,16 +1,14 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import psycopg2
 from psycopg2 import errors
 from psycopg2.extras import RealDictCursor
 import os
+import jwt
+import datetime
+from functools import wraps
 
 app = Flask(__name__)
-
-app.config.update(
-    SESSION_COOKIE_SAMESITE="None",
-    SESSION_COOKIE_SECURE=True
-)
 
 CORS(
     app,
@@ -23,7 +21,7 @@ CORS(
     supports_credentials=True
 )
 
-app.secret_key = os.environ.get("SECRET_KEY", "secret_dev_key")
+SECRET_KEY = os.environ.get("SECRET_KEY", "secret_dev_key")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -69,6 +67,7 @@ def init_db():
     conn.close()
 
 init_db()
+
 
 # --- API đăng ký ---
 @app.route("/api/register", methods=["POST"])
@@ -118,37 +117,56 @@ def login():
     conn.close()
 
     if user:
+        payload = {
+            "username": user["username"],
+            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=2)
+        }
+        token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
         return jsonify({
-            "message": "Đăng nhập thành công",
-            "username": user["username"]
+            "message": "Đăng nhập thành công", "token": token
         })
     else:
         return jsonify({"message": "Sai username hoặc password"}), 401
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if "Authorization" in request.headers:
+            token = request.headers["Authorization"].split(" ")[1]  # Bearer <token>
+        if not token:
+            return jsonify({"error": "Token thiếu"}), 403
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            current_user = data["username"]
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token hết hạn"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Token không hợp lệ"}), 401
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
     return jsonify({"message": "Đã logout"})
 
-
 # --- Đăng bài ---
 @app.route("/api/create_post", methods=["POST"])
-def create_post():
+@token_required
+def create_post(current_user):
     data = request.json
-    username = data.get("username")
     title = data.get("title")
     content = data.get("content")
-    if not username:
-        return jsonify({"error": "chưa login"}), 403
-
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO posts (username, title, content) VALUES (%s,%s,%s) RETURNING id",
-                (username, title, content))
+                (current_user, title, content))
     post_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"message": "tạo bài thành công", "post_id": post_id,  "username": username})
+    return jsonify({"message": "tạo bài thành công", "post_id": post_id,  "username": current_user})
 
 # --- Lấy danh sách bài ---
 @app.route("/api/posts", methods=["GET"])
@@ -165,22 +183,19 @@ def get_posts():
 
 # --- Thêm bình luận ---
 @app.route("/api/add_comment/<int:post_id>", methods=["POST"])
-def add_comment(post_id):
+@token_required
+def add_comment(current_user, post_id):
     data = request.json
-    username = data.get("username")
     content = data.get("content")
-    if not username:
-        return jsonify({"error": "chưa login"}), 403
-
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO comments (post_id, username, content) VALUES (%s,%s,%s) RETURNING id",
-                (post_id, username, content))
+                (post_id, current_user, content))
     comment_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
     conn.close()
-    return jsonify({"message": "bình luận thành công", "comment_id": comment_id, "username": username})
+    return jsonify({"message": "bình luận thành công", "comment_id": comment_id, "username": current_user})
 
 # --- Lấy bình luận của 1 bài ---
 @app.route("/api/comments/<int:post_id>", methods=["GET"])
@@ -199,20 +214,15 @@ def get_comments(post_id):
 
 # --- Xóa bài ---
 @app.route("/api/delete_post/<int:post_id>", methods=["DELETE"])
-def delete_post(post_id):
+@token_required
+def delete_post(current_user, post_id):
     data = request.json
-    username = data.get("username")  # lấy trực tiếp từ body
-
-    if not username:
-        return jsonify({"error": "chưa login"}), 403
-
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # Kiểm tra bài viết thuộc về user
     cur.execute(
         "SELECT * FROM posts WHERE id = %s AND username = %s",
-        (post_id, username)
+        (post_id, current_user)
     )
     post = cur.fetchone()
     if not post:
