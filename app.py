@@ -123,7 +123,7 @@ def login():
         }
         token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
         return jsonify({
-            "message": "Đăng nhập thành công", "token": token
+            "message": "Đăng nhập thành công", "token": token, "username": user["username"]
         })
     else:
         return jsonify({"message": "Sai username hoặc password"}), 401
