@@ -125,7 +125,7 @@ def create_post():
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO posts (username, title, content) VALUES (%s,%s,%s) RETURNING id",
-                (username, title, content))
+                (session["username"], title, content))
     post_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
@@ -157,7 +157,7 @@ def add_comment(post_id):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("INSERT INTO comments (post_id, username, content) VALUES (%s,%s,%s) RETURNING id",
-                (post_id, username, content))
+                (post_id, session["username"], content))
     comment_id = cur.fetchone()["id"]
     conn.commit()
     cur.close()
