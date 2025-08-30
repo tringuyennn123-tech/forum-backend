@@ -8,7 +8,7 @@ import os
 app = Flask(__name__)
 
 app.config.update(
-    SESSION_COOKIE_SAMESITE="None",
+    SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=False   # vì localhost không có HTTPS
 )
 
