@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 app.config.update(
     SESSION_COOKIE_SAMESITE="None",
-    SESSION_COOKIE_SECURE=True   # vì localhost không có HTTPS
+    SESSION_COOKIE_SECURE=True
 )
 
 CORS(
@@ -118,7 +118,6 @@ def login():
     conn.close()
 
     if user:
-        session["username"] = user["username"]
         return jsonify({
             "message": "Đăng nhập thành công",
             "username": user["username"]
@@ -128,7 +127,6 @@ def login():
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
-    session.clear()  # xoá toàn bộ session
     return jsonify({"message": "Đã logout"})
 
 
@@ -136,7 +134,7 @@ def logout():
 @app.route("/api/create_post", methods=["POST"])
 def create_post():
     data = request.json
-    username = session.get("username")
+    username = data.get("username")
     title = data.get("title")
     content = data.get("content")
     if not username:
@@ -169,7 +167,7 @@ def get_posts():
 @app.route("/api/add_comment/<int:post_id>", methods=["POST"])
 def add_comment(post_id):
     data = request.json
-    username = session.get("username")
+    username = data.get("username")
     content = data.get("content")
     if not username:
         return jsonify({"error": "chưa login"}), 403
